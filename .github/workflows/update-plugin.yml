@@ -1,0 +1,29 @@
+name: Update Plugin Version
+
+on:
+  repository_dispatch:
+    types: [plugin-release]
+
+permissions:
+  contents: write
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update marketplace.json
+        run: |
+          jq --arg name "${{ github.event.client_payload.plugin_name }}" \
+             --arg ver "${{ github.event.client_payload.version }}" \
+             '(.plugins[] | select(.name == $name)).version = $ver' \
+             .claude-plugin/marketplace.json > tmp && mv tmp .claude-plugin/marketplace.json
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          PLUGIN="${{ github.event.client_payload.plugin_name }}"
+          VERSION="${{ github.event.client_payload.version }}"
+          git diff --quiet || (git add -A && git commit -m "chore($PLUGIN): bump to $VERSION" && git push)
